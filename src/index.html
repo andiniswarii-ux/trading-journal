@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trading Journal</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0d0f0d;}</style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useRef, useEffect } = React;
+    const { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip, LineChart, Line, CartesianGrid, XAxis, YAxis } = Recharts;
+
+
+const C = {
+  bg:"#0d0f0d", card:"#131713", card2:"#181d18",
+  border:"#1f271f", borderLight:"#243024",
+  green:"#22c55e", greenGlow:"#22c55e22",
+  red:"#ef4444", yellow:"#eab308", blue:"#60a5fa",
+  text:"#ffffff", muted:"#6b7280", muted2:"#374151",
+  sub:"#9ca3af",
+};
+
+const INIT_TRADES = [
+  { id:1, date:"2025-06-14", tEntryH:"10", tEntryM:"01", tEntryS:"05", tExitH:"10", tExitM:"19", tExitS:"05", type:"Futures", symbol:"NQ", model:"Fractal Sweep", side:"Short", qty:3, entryPrice:21800, sl:21769, netPnl:2710, win:true, plannedRR:4.39, realizedRR:2.17, pts:54.2, cost:0, rules:{sweep4h:true,sweep1h:true,classicSR:true,smt:true}, setup:{ifvg:true,cisd:false,fibonacci:true,oiLevel:false}, tags:["Took Off Early"], emotion:68, grade:"B", notePre:"Waited for market to affirm selling back to NY AM.", noteRW:"Took it off too early out of fear.", screens:[] },
+  { id:2, date:"2025-06-12", tEntryH:"09", tEntryM:"30", tEntryS:"00", tExitH:"10", tExitM:"05", tExitS:"00", type:"Futures", symbol:"NQ", model:"Fractal Sweep", side:"Long", qty:2, entryPrice:21500, sl:21450, netPnl:-1795, win:false, plannedRR:3.0, realizedRR:-1.0, pts:-35.9, cost:0, rules:{sweep4h:true,sweep1h:false,classicSR:true,smt:false}, setup:{ifvg:false,cisd:true,fibonacci:false,oiLevel:false}, tags:["FOMO Entry","No Confluence"], emotion:32, grade:"D", notePre:"Thought there was a setup at open.", noteRW:"Didn't wait for confirmation. FOMO.", screens:[] },
+  { id:3, date:"2025-06-11", tEntryH:"14", tEntryM:"00", tEntryS:"00", tExitH:"14", tExitM:"45", tExitS:"00", type:"Futures", symbol:"ES", model:"Fractal Sweep", side:"Long", qty:5, entryPrice:5400, sl:5390, netPnl:2575, win:true, plannedRR:5.0, realizedRR:4.5, pts:51.5, cost:0, rules:{sweep4h:true,sweep1h:true,classicSR:true,smt:true}, setup:{ifvg:true,cisd:true,fibonacci:false,oiLevel:true}, tags:[], emotion:80, grade:"A", notePre:"All confluences aligned at NY PM.", noteRW:"Executed perfectly. Let it run.", screens:[] },
+  { id:4, date:"2025-06-09", tEntryH:"10", tEntryM:"15", tEntryS:"00", tExitH:"11", tExitM:"00", tExitS:"00", type:"Futures", symbol:"NQ", model:"Fractal Sweep", side:"Short", qty:2, entryPrice:21700, sl:21680, netPnl:1483.50, win:true, plannedRR:3.5, realizedRR:2.8, pts:29.67, cost:0, rules:{sweep4h:true,sweep1h:true,classicSR:false,smt:true}, setup:{ifvg:false,cisd:true,fibonacci:true,oiLevel:false}, tags:["Took Off Early"], emotion:60, grade:"B", notePre:"Good setup, SR not fully confirmed.", noteRW:"Should have held longer.", screens:[] },
+  { id:5, date:"2025-06-03", tEntryH:"09", tEntryM:"45", tEntryS:"00", tExitH:"10", tExitM:"10", tExitS:"00", type:"Futures", symbol:"NQ", model:"Fractal Sweep", side:"Long", qty:2, entryPrice:21600, sl:21570, netPnl:-1533, win:false, plannedRR:4.0, realizedRR:-1.0, pts:-30.66, cost:0, rules:{sweep4h:false,sweep1h:true,classicSR:true,smt:false}, setup:{ifvg:false,cisd:false,fibonacci:false,oiLevel:false}, tags:["Rule Violation","Revenge Trade"], emotion:20, grade:"F", notePre:"Not fully aligned, revenge trade.", noteRW:"Classic revenge trade. Stay out.", screens:[] },
+  { id:6, date:"2025-06-02", tEntryH:"15", tEntryM:"00", tEntryS:"00", tExitH:"15", tExitM:"30", tExitS:"00", type:"Futures", symbol:"NQ", model:"Fractal Sweep", side:"Short", qty:4, entryPrice:21900, sl:21880, netPnl:4896, win:true, plannedRR:7.0, realizedRR:6.12, pts:122.4, cost:0, rules:{sweep4h:true,sweep1h:true,classicSR:true,smt:true}, setup:{ifvg:true,cisd:true,fibonacci:true,oiLevel:true}, tags:[], emotion:85, grade:"A+", notePre:"Perfect setup. All rules confirmed.", noteRW:"Best trade of the month. Flawless.", screens:[] },
+];
+
+const EMPTY = { date:new Date().toISOString().split("T")[0], tEntryH:"", tEntryM:"", tEntryS:"", tExitH:"", tExitM:"", tExitS:"", type:"Futures", symbol:"", model:"Fractal Sweep", side:"Short", qty:"", entryPrice:"", sl:"", netPnl:"", win:true, plannedRR:"", realizedRR:"", pts:"", cost:"", rules:{sweep4h:false,sweep1h:false,classicSR:false,smt:false}, setup:{ifvg:false,cisd:false,fibonacci:false,oiLevel:false}, tags:[], emotion:65, grade:"A", notePre:"", noteRW:"", screens:[] };
+
+const TAG_OPTS = ["Took Off Early","Revenge Trade","Oversize","FOMO Entry","No Setup","Moved Stop","Chased Entry","Rule Violation","No Confluence","Overtraded","Early Entry","Late Entry"];
+const GRADES = ["F","D","C","B","A","A+"];
+const MODELS = ["Fractal Sweep","OvernightVP","EMA Retest","SMT Divergence","Liquidity Sweep","FVG Fill","Custom"];
+const RULES = { sweep4h:"4H Sweep", sweep1h:"1H Sweep", classicSR:"Classic Support/Resistance", smt:"SMT" };
+const SETUP_ENTRY = { ifvg:"IFVG", cisd:"CISD", fibonacci:"Fibonacci", oiLevel:"OI Level" };
+const NAVS = [{ id:"dashboard", icon:"⊞", tip:"Dashboard" },{ id:"journal", icon:"≡", tip:"Trade Journal" },{ id:"analytics", icon:"◫", tip:"Analytics" },{ id:"calendar", icon:"▦", tip:"Calendar P&L" }];
+
+function emotionLabel(v) { return v<20?"Anxious":v<35?"Stressed":v<50?"Unsure":v<65?"Neutral":v<80?"Calm":v<90?"Focused":"Confident"; }
+function emotionColor(v) { return `hsl(${v*2.4},80%,58%)`; }
+function gradeColor(g) { return g==="A+"?"#22c55e":g==="A"?"#4ade80":g==="B"?"#3b82f6":g==="C"?"#eab308":g==="D"?"#f97316":"#ef4444"; }
+
+function calcStats(trades) {
+  if (!trades.length) return { total:0, wins:0, losses:0, winRate:"0.0", netPnl:0, profitFactor:"0.00", avgWin:0, avgLoss:0, avgEmotion:50, ruleAdh:0, wlRatio:0, consistency:50, tradepath:0 };
+  const wins=trades.filter(t=>t.win), losses=trades.filter(t=>!t.win);
+  const netPnl=trades.reduce((s,t)=>s+parseFloat(t.netPnl||0),0);
+  const grossWin=wins.reduce((s,t)=>s+parseFloat(t.netPnl||0),0);
+  const grossLoss=Math.abs(losses.reduce((s,t)=>s+parseFloat(t.netPnl||0),0));
+  const winRate=(wins.length/trades.length)*100;
+  const avgWin=wins.length?grossWin/wins.length:0;
+  const avgLoss=losses.length?grossLoss/losses.length:0;
+  const pf=grossLoss>0?grossWin/grossLoss:grossWin>0?9:0;
+  const avgEmotion=trades.reduce((s,t)=>s+(t.emotion||50),0)/trades.length;
+  const ruleAdh=trades.reduce((s,t)=>{const r=Object.values(t.rules||{});return s+(r.filter(Boolean).length/r.length)*100;},0)/trades.length;
+  const wlRatio=avgLoss>0?avgWin/avgLoss:avgWin>0?5:0;
+  const pnls=trades.map(t=>parseFloat(t.netPnl||0));
+  const mean=pnls.reduce((a,b)=>a+b,0)/pnls.length;
+  const std=Math.sqrt(pnls.reduce((a,b)=>a+(b-mean)**2,0)/pnls.length);
+  const consistency=mean!==0?Math.max(0,Math.min(100,100-(std/Math.abs(mean))*15)):50;
+  const tradepath=(Math.min(winRate,100)*0.2+Math.min(ruleAdh,100)*0.25+Math.min(pf*10,100)*0.2+Math.min(wlRatio*25,100)*0.15+consistency*0.2);
+  return { total:trades.length, wins:wins.length, losses:losses.length, winRate:winRate.toFixed(1), netPnl:netPnl.toFixed(2), profitFactor:pf.toFixed(2), avgWin:avgWin.toFixed(2), avgLoss:avgLoss.toFixed(2), avgEmotion, ruleAdh, wlRatio, consistency, tradepath };
+}
+
+function EmoFace({ val, size=56 }) {
+  const col=emotionColor(val), s=size;
+  const smile=val>=48;
+  const mouth=smile?`M${s*.32} ${s*.6} Q${s*.5} ${s*.74} ${s*.68} ${s*.6}`:`M${s*.32} ${s*.66} Q${s*.5} ${s*.52} ${s*.68} ${s*.66}`;
+  return (
+    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+      <defs><radialGradient id={`eg${s}`}><stop offset="0%" stopColor={col} stopOpacity="0.25"/><stop offset="100%" stopColor={col} stopOpacity="0.05"/></radialGradient></defs>
+      <circle cx={s/2} cy={s/2} r={s/2-1} fill={`url(#eg${s})`} stroke={col} strokeWidth="1.5"/>
+      <circle cx={s*.36} cy={s*.42} r={s*.065} fill={col}/>
+      <circle cx={s*.64} cy={s*.42} r={s*.065} fill={col}/>
+      <path d={mouth} stroke={col} strokeWidth="2" fill="none" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function SemiGauge({ pct=0, wins=0, losses=0, be=0 }) {
+  const r=54, cx=70, cy=70, sw=10;
+  const arc=(p)=>{
+    const a=Math.PI*(1-p), x=cx+r*Math.cos(a), y=cy-r*Math.sin(a);
+    return `M${cx-r},${cy} A${r},${r} 0 0,1 ${x},${y}`;
+  };
+  const p=Math.min(pct/100,1);
+  return (
+    <div style={{textAlign:"center"}}>
+      <svg width={140} height={80} viewBox="0 0 140 80">
+        <path d={`M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}`} fill="none" stroke={C.border} strokeWidth={sw} strokeLinecap="round"/>
+        {p>0 && <path d={arc(p)} fill="none" stroke={C.green} strokeWidth={sw} strokeLinecap="round"/>}
+        <text x={cx} y={cy-8} textAnchor="middle" fill={C.text} fontSize="22" fontWeight="800" fontFamily="system-ui">{pct.toFixed(1)}%</text>
+      </svg>
+      <div style={{display:"flex",justifyContent:"center",gap:16,marginTop:-8}}>
+        <div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:C.green}}>{wins}</div><div style={{fontSize:10,color:C.muted}}>Win</div></div>
+        <div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:C.red}}>{losses}</div><div style={{fontSize:10,color:C.muted}}>Loss</div></div>
+        <div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:800,color:C.muted}}>{be}</div><div style={{fontSize:10,color:C.muted}}>BE</div></div>
+      </div>
+    </div>
+  );
+}
+
+function Ring({ val, max=100, color, label, size=70 }) {
+  const r=size*.38, c=2*Math.PI*r, pct=Math.min(val/max,1), dash=pct*c;
+  return (
+    <div style={{position:"relative",width:size,height:size}}>
+      <svg width={size} height={size} style={{transform:"rotate(-90deg)"}}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.border} strokeWidth={size*.09}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={size*.09} strokeDasharray={`${dash} ${c}`} strokeLinecap="round"/>
+      </svg>
+      <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
+        <div style={{fontSize:size*.22,fontWeight:800,color}}>{val}</div>
+        <div style={{fontSize:size*.14,color:C.muted}}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function Card({ children, style, p=20 }) {
+  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:p,...style}}>{children}</div>;
+}
+
+function Lbl({ children }) {
+  return <div style={{color:C.muted,fontSize:11,fontWeight:600,marginBottom:6,letterSpacing:"0.04em",fontFamily:"system-ui"}}>{children}</div>;
+}
+
+function Inp({ value, onChange, type="text", placeholder, style }) {
+  return <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+    style={{width:"100%",background:C.card2,color:C.text,border:`1px solid ${C.border}`,padding:"10px 12px",borderRadius:8,fontSize:13,boxSizing:"border-box",outline:"none",fontFamily:"system-ui",...style}}/>;
+}
+
+function Sel({ value, onChange, opts }) {
+  return (
+    <select value={value} onChange={onChange} style={{width:"100%",background:C.card2,color:C.text,border:`1px solid ${C.border}`,padding:"10px 12px",borderRadius:8,fontSize:13,outline:"none",fontFamily:"system-ui"}}>
+      {opts.map(o=><option key={o}>{o}</option>)}
+    </select>
+  );
+}
+
+function Tag({ label, onRemove, color=C.green }) {
+  return (
+    <span style={{display:"inline-flex",alignItems:"center",gap:4,background:`${color}18`,border:`1px solid ${color}33`,color,padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600,fontFamily:"system-ui"}}>
+      {label}
+      {onRemove && <span onClick={onRemove} style={{cursor:"pointer",opacity:.7,fontWeight:900}}>×</span>}
+    </span>
+  );
+}
+
+function SectionHead({ children }) {
+  return <div style={{color:C.text,fontSize:13,fontWeight:700,marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${C.border}`,fontFamily:"system-ui",letterSpacing:"0.02em"}}>{children}</div>;
+}
+
+function App() {
+  const [page, setPage]=useState("dashboard");
+  const [trades, setTrades]=useState(()=>{
+    try {
+      const saved=localStorage.getItem('tj-trades');
+      return saved ? JSON.parse(saved) : INIT_TRADES;
+    } catch { return INIT_TRADES; }
+  });
+
+  useEffect(()=>{
+    localStorage.setItem('tj-trades', JSON.stringify(trades));
+  },[trades]);
+  const [showForm, setShowForm]=useState(false);
+  const [form, setForm]=useState(EMPTY);
+  const [editId, setEditId]=useState(null);
+  const [dailyLogs, setDailyLogs]=useState({});
+  const [dailyDate, setDailyDate]=useState(new Date().toISOString().split("T")[0]);
+  const [filterDate, setFilterDate]=useState("");
+  const [session, setSession]=useState(null);
+  const [showTagDrop, setShowTagDrop]=useState(false);
+  const [showSymDrop, setShowSymDrop]=useState(false);
+  const fileRef=useRef();
+
+  const stats=useMemo(()=>calcStats(trades),[trades]);
+
+  function openNew() { setForm({...EMPTY}); setEditId(null); setShowForm(true); }
+  function openEdit(t) { setForm({...t}); setEditId(t.id); setShowForm(true); }
+  function deleteTrade(id) { setTrades(ts=>ts.filter(t=>t.id!==id)); }
+
+  function saveTrade() {
+    const t={...form, netPnl:parseFloat(form.netPnl)||0, win:(parseFloat(form.netPnl)||0)>0};
+    if (editId!==null) setTrades(ts=>ts.map(x=>x.id===editId?{...t,id:editId}:x));
+    else setTrades(ts=>[{...t,id:Date.now()},...ts]);
+    setShowForm(false);
+  }
+
+  function addTag(tag) {
+    if (!tag||form.tags.includes(tag)) return;
+    setForm(f=>({...f,tags:[...f.tags,tag]}));
+  }
+  function removeTag(tag) { setForm(f=>({...f,tags:f.tags.filter(t=>t!==tag)})); }
+
+  function handleScreen(e) {
+    const file=e.target.files[0]; if (!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>setForm(f=>({...f,screens:[...f.screens,{name:file.name,url:ev.target.result,title:""}]}));
+    reader.readAsDataURL(file);
+    e.target.value="";
+  }
+
+  const calendarPnl=useMemo(()=>{
+    const m={};
+    trades.forEach(t=>{if(!m[t.date])m[t.date]=0; m[t.date]+=parseFloat(t.netPnl||0);});
+    return m;
+  },[trades]);
+
+  const cumPnl=useMemo(()=>{
+    let c=0;
+    return [...trades].sort((a,b)=>a.date.localeCompare(b.date)).map((t,i)=>({i:i+1,pnl:(c+=parseFloat(t.netPnl||0))}));
+  },[trades]);
+
+  const radarData=[
+    {subject:"Win %", A:Math.min(parseFloat(stats.winRate),100)},
+    {subject:"Rule Adh.", A:Math.min(stats.ruleAdh,100)},
+    {subject:"Profit F.", A:Math.min(parseFloat(stats.profitFactor)*10,100)},
+    {subject:"W/L Ratio", A:Math.min(stats.wlRatio*25,100)},
+    {subject:"Consistency", A:Math.min(stats.consistency,100)},
+  ];
+
+  return (
+    <div style={{display:"flex",height:"100vh",background:C.bg,color:C.text,fontFamily:"system-ui,-apple-system,sans-serif",fontSize:13,overflow:"hidden",backgroundImage:"radial-gradient(#ffffff06 1px,transparent 1px)",backgroundSize:"28px 28px"}}>
+
+      {/* SIDEBAR */}
+      <div style={{width:60,background:C.card,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 0",gap:6}}>
+        <div style={{marginBottom:24}}>
+          <svg width={28} height={28} viewBox="0 0 28 28"><circle cx={14} cy={14} r={13} fill="none" stroke={C.green} strokeWidth={2}/><circle cx={14} cy={14} r={5} fill={C.green}/></svg>
+        </div>
+        {NAVS.map(n=>(
+          <button key={n.id} title={n.tip} onClick={()=>setPage(n.id)}
+            style={{width:40,height:40,background:page===n.id?`${C.green}18`:"transparent",border:"none",borderRadius:10,color:page===n.id?C.green:C.muted,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
+            {n.icon}
+          </button>
+        ))}
+      </div>
+
+      {/* MAIN */}
+      <div style={{flex:1,overflow:"auto",padding:28}}>
+
+        {/* ── DASHBOARD ── */}
+        {page==="dashboard" && (
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+              <div>
+                <div style={{fontSize:26,fontWeight:800,letterSpacing:"-0.5px"}}>Dashboard</div>
+                <div style={{color:C.muted,fontSize:12,marginTop:3}}>Jun 01, 2025 – Jun 30, 2025</div>
+              </div>
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={openNew} style={{background:C.green,color:"#000",border:"none",padding:"10px 20px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit"}}>Log Trade</button>
+                <button onClick={()=>setSession(s=>s?null:new Date())} style={{background:"transparent",color:session?C.green:C.muted,border:`1px solid ${session?C.green:C.border}`,padding:"10px 20px",borderRadius:8,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:600}}>
+                  {session?"● Session Active":"Start Session"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:14,marginBottom:14}}>
+              <Card p={0} style={{overflow:"hidden"}}>
+                <div style={{padding:"16px 20px 12px"}}><div style={{fontWeight:700,fontSize:14}}>June 2025</div></div>
+                <CalendarWidget data={calendarPnl} trades={trades} onDayClick={(ds)=>{setFilterDate(ds);setPage("journal");}}/>
+              </Card>
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                <Card>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                    <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Net P&L</div>
+                    <span style={{color:C.muted,fontSize:10}}>ⓘ</span>
+                  </div>
+                  <div style={{fontSize:30,fontWeight:800,color:parseFloat(stats.netPnl)>=0?C.green:C.red,letterSpacing:"-0.5px"}}>
+                    {parseFloat(stats.netPnl)>=0?"+":""}{parseFloat(stats.netPnl).toLocaleString("en",{style:"currency",currency:"USD"})}
+                  </div>
+                  <div style={{color:C.muted,fontSize:11,marginTop:4}}>{stats.total} total trades</div>
+                </Card>
+                <Card>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                    <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Profit Factor</div>
+                    <span style={{color:C.muted,fontSize:10}}>ⓘ</span>
+                  </div>
+                  <div style={{fontSize:30,fontWeight:800,color:parseFloat(stats.profitFactor)>1?C.green:C.red,letterSpacing:"-0.5px"}}>{stats.profitFactor}</div>
+                  <div style={{color:C.muted,fontSize:11,marginTop:4}}>Gross wins ÷ gross losses</div>
+                </Card>
+                <Card style={{flex:1}}>
+                  <div style={{color:C.muted,fontSize:12,fontWeight:600,marginBottom:10}}>Recent Trades</div>
+                  {trades.slice(0,3).map(t=>(
+                    <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${C.border}`}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:13}}>{t.symbol}</div>
+                        <div style={{color:C.muted,fontSize:10}}>{t.date.slice(5).replace("-","/")}</div>
+                      </div>
+                      <span style={{background:parseFloat(t.netPnl)>=0?`${C.green}18`:`${C.red}18`,color:parseFloat(t.netPnl)>=0?C.green:C.red,padding:"4px 10px",borderRadius:6,fontWeight:700,fontSize:12,border:`1px solid ${parseFloat(t.netPnl)>=0?C.green:C.red}33`}}>
+                        {parseFloat(t.netPnl)>=0?"+":""}{parseFloat(t.netPnl).toLocaleString("en",{style:"currency",currency:"USD"})}
+                      </span>
+                    </div>
+                  ))}
+                </Card>
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr 1fr",gap:14}}>
+              {/* Trade Win % — semicircle gauge */}
+              <Card>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                  <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Trade win %</div>
+                  <span style={{color:C.muted,fontSize:10}}>ⓘ</span>
+                </div>
+                <SemiGauge pct={parseFloat(stats.winRate)} wins={stats.wins} losses={stats.losses} be={0}/>
+              </Card>
+
+              {/* Avg Win/Loss */}
+              <Card>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                  <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Avg Win/Loss</div>
+                  <span style={{color:C.muted,fontSize:10}}>ⓘ</span>
+                </div>
+                <div style={{fontSize:36,fontWeight:800,color:C.text,letterSpacing:"-1px",marginBottom:16}}>{stats.wlRatio.toFixed(1)}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <div>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{color:C.muted,fontSize:11}}>Avg win</span>
+                      <span style={{color:C.green,fontWeight:700,fontSize:12}}>${parseFloat(stats.avgWin).toLocaleString()}</span>
+                    </div>
+                    <div style={{height:4,background:C.border,borderRadius:2}}><div style={{height:4,background:C.green,borderRadius:2,width:`${Math.min(parseFloat(stats.avgWin)/60,100)}%`}}/></div>
+                  </div>
+                  <div>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{color:C.muted,fontSize:11}}>Avg loss</span>
+                      <span style={{color:C.red,fontWeight:700,fontSize:12}}>-${parseFloat(stats.avgLoss).toLocaleString()}</span>
+                    </div>
+                    <div style={{height:4,background:C.border,borderRadius:2}}><div style={{height:4,background:C.red,borderRadius:2,width:`${Math.min(parseFloat(stats.avgLoss)/60,100)}%`}}/></div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Tradepath Score */}
+              <Card>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                  <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Tradepath score</div>
+                  <span style={{color:C.muted,fontSize:10}}>ⓘ</span>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:16,alignItems:"center"}}>
+                  <div style={{fontSize:40,fontWeight:900,color:C.green,letterSpacing:"-1.5px"}}>{stats.tradepath.toFixed(2)}</div>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <RadarChart data={radarData} margin={{top:8,right:20,bottom:8,left:20}}>
+                      <PolarGrid stroke={C.border} radialLines={false}/>
+                      <PolarAngleAxis dataKey="subject" tick={{fill:C.muted,fontSize:9,fontFamily:"system-ui"}} tickLine={false}/>
+                      <Radar dataKey="A" stroke={C.green} fill={C.green} fillOpacity={0.12} strokeWidth={1.5}/>
+                      <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,fontSize:11,borderRadius:8}} formatter={v=>[`${v.toFixed(1)}/100`]}/>
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              {/* Avg Emotion */}
+              <Card style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",width:"100%",marginBottom:4}}>
+                  <div style={{color:C.muted,fontSize:12,fontWeight:600}}>Avg. emotion</div>
+                  <span style={{color:C.muted,fontSize:10}}>ⓘ</span>
+                </div>
+                <EmoFace val={stats.avgEmotion} size={68}/>
+                <div style={{color:emotionColor(stats.avgEmotion),fontWeight:700,fontSize:15}}>{emotionLabel(stats.avgEmotion)}</div>
+                <div style={{width:"100%",height:5,background:C.border,borderRadius:3}}>
+                  <div style={{height:5,width:`${stats.avgEmotion}%`,background:`linear-gradient(90deg,#ef4444,#eab308,#22c55e,#3b82f6)`,borderRadius:3}}/>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* ── TRADE JOURNAL ── */}
+        {page==="journal" && (
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div>
+                <div style={{fontSize:22,fontWeight:800,letterSpacing:"-0.5px"}}>Trade Journal</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+                  {filterDate
+                    ? <><span style={{color:C.green,fontSize:11}}>📅 {filterDate}</span>
+                        <button onClick={()=>setFilterDate("")} style={{background:`${C.red}22`,border:`1px solid ${C.red}44`,color:C.red,padding:"2px 8px",borderRadius:4,cursor:"pointer",fontSize:10,fontFamily:"inherit"}}>✕ Clear filter</button>
+                      </>
+                    : <span style={{color:C.muted,fontSize:11}}>All trades</span>
+                  }
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={openNew} style={{background:C.green,color:"#000",border:"none",padding:"9px 16px",borderRadius:7,cursor:"pointer",fontWeight:800,fontSize:12,fontFamily:"inherit"}}>+ New Trade</button>
+                <button onClick={()=>{
+                  const csv=["Date,Symbol,Side,Net P&L,Planned RR,Realized RR,Grade,Emotion,Tags",...trades.map(t=>`${t.date},${t.symbol},${t.side},${t.netPnl},${t.plannedRR},${t.realizedRR},${t.grade},${emotionLabel(t.emotion)},"${t.tags.join(";")}"`)] .join("
+");
+                  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv]));a.download="trades.csv";a.click();
+                }} style={{background:C.card2,color:C.muted,border:`1px solid ${C.border}`,padding:"9px 16px",borderRadius:7,cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>Export CSV</button>
+              </div>
+            </div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead>
+                  <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                    {["DATE","SYMBOL","SIDE","PLAN RR","REAL RR","NET P&L","EMOTION","RULES","GRADE","TAGS",""].map(h=>(
+                      <th key={h} style={{padding:"10px 12px",textAlign:"left",color:C.muted,fontSize:9,letterSpacing:"0.08em",fontWeight:700}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(filterDate ? trades.filter(t=>t.date===filterDate) : trades).map(t=>{
+                    const pnl=parseFloat(t.netPnl||0);
+                    const ruleCount=Object.values(t.rules||{}).filter(Boolean).length;
+                    return (
+                      <tr key={t.id} style={{borderBottom:`1px solid ${C.border}`}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#ffffff06"}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <td style={{padding:"10px 12px",color:C.muted,fontSize:11}}>{t.date}</td>
+                        <td style={{padding:"10px 12px",fontWeight:800}}>{t.symbol}</td>
+                        <td style={{padding:"10px 12px"}}>
+                          <span style={{background:t.side==="Long"?`${C.green}22`:`${C.red}22`,color:t.side==="Long"?C.green:C.red,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700}}>{t.side==="Long"?"↑ L":"↓ S"}</span>
+                        </td>
+                        <td style={{padding:"10px 12px",color:C.muted,fontSize:11}}>{t.plannedRR}</td>
+                        <td style={{padding:"10px 12px",color:parseFloat(t.realizedRR||0)>=0?C.green:C.red,fontWeight:700}}>{parseFloat(t.realizedRR||0)>=0?"+":""}{t.realizedRR}R</td>
+                        <td style={{padding:"10px 12px",color:pnl>=0?C.green:C.red,fontWeight:800}}>{pnl>=0?"+":""}{pnl.toLocaleString("en",{style:"currency",currency:"USD"})}</td>
+                        <td style={{padding:"10px 12px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:5}}>
+                            <EmoFace val={t.emotion} size={20}/>
+                            <span style={{color:emotionColor(t.emotion),fontSize:10}}>{emotionLabel(t.emotion)}</span>
+                          </div>
+                        </td>
+                        <td style={{padding:"10px 12px"}}>
+                          <div style={{display:"flex",gap:3}}>
+                            {Object.entries(t.rules||{}).map(([k,v])=>(
+                              <span key={k} style={{width:7,height:7,borderRadius:"50%",background:v?C.green:C.border,display:"inline-block"}} title={RULES[k]}/>
+                            ))}
+                          </div>
+                          <div style={{color:C.muted,fontSize:9,marginTop:2}}>{ruleCount}/4</div>
+                        </td>
+                        <td style={{padding:"10px 12px"}}>
+                          <span style={{background:`${gradeColor(t.grade)}22`,color:gradeColor(t.grade),border:`1px solid ${gradeColor(t.grade)}44`,padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:700}}>{t.grade}</span>
+                        </td>
+                        <td style={{padding:"10px 12px"}}>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                            {t.tags.map(tag=><Tag key={tag} label={tag} color={C.red}/>)}
+                          </div>
+                        </td>
+                        <td style={{padding:"10px 8px"}}>
+                          <div style={{display:"flex",gap:4}}>
+                            <button onClick={()=>openEdit(t)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"3px 7px",borderRadius:4,cursor:"pointer",fontSize:11}}>✎</button>
+                            <button onClick={()=>deleteTrade(t.id)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.red,padding:"3px 7px",borderRadius:4,cursor:"pointer",fontSize:11}}>✕</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {trades.length===0 && <div style={{padding:40,textAlign:"center",color:C.muted}}>No trades yet.</div>}
+            </div>
+          </div>
+        )}
+
+        {/* ── ANALYTICS ── */}
+        {page==="analytics" && (
+          <div>
+            <div style={{fontSize:22,fontWeight:800,letterSpacing:"-0.5px",marginBottom:4}}>Analytics</div>
+            <div style={{color:C.muted,fontSize:11,marginBottom:24}}>Deep performance analysis — {stats.total} trades · {parseFloat(stats.netPnl)>=0?"+":""}${parseFloat(stats.netPnl).toLocaleString()} net</div>
+
+            <SectionHead>◈ PERFORMANCE OVERVIEW</SectionHead>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
+              {[
+                {l:"TOTAL TRADES",v:stats.total,sub:`${stats.wins}W · ${stats.losses}L`,c:C.text},
+                {l:"WIN RATE",v:`${stats.winRate}%`,sub:`${stats.wins} of ${stats.total}`,c:C.green},
+                {l:"NET P/L",v:`${parseFloat(stats.netPnl)>=0?"+":""}$${parseFloat(stats.netPnl).toLocaleString()}`,sub:"Total after fees",c:parseFloat(stats.netPnl)>=0?C.green:C.red},
+                {l:"PROFIT FACTOR",v:stats.profitFactor,sub:"Gross wins ÷ losses",c:parseFloat(stats.profitFactor)>1?C.green:C.red},
+                {l:"AVG WIN",v:`+$${parseFloat(stats.avgWin).toLocaleString()}`,sub:"Per winning trade",c:C.green},
+                {l:"AVG LOSS",v:`-$${parseFloat(stats.avgLoss).toLocaleString()}`,sub:"Per losing trade",c:C.red},
+                {l:"WIN/LOSS RATIO",v:stats.wlRatio.toFixed(2),sub:"Avg win ÷ avg loss",c:C.blue},
+                {l:"AVG EMOTION",v:emotionLabel(stats.avgEmotion),sub:`Score: ${stats.avgEmotion.toFixed(0)}/100`,c:emotionColor(stats.avgEmotion)},
+              ].map(m=>(
+                <Card key={m.l}>
+                  <div style={{color:C.muted,fontSize:9,letterSpacing:"0.08em",fontWeight:700}}>{m.l}</div>
+                  <div style={{fontSize:22,fontWeight:800,color:m.c,margin:"8px 0 3px",letterSpacing:"-0.5px"}}>{m.v}</div>
+                  <div style={{color:C.muted,fontSize:10}}>{m.sub}</div>
+                  <div style={{height:2,background:`${m.c}22`,marginTop:10,borderRadius:1}}><div style={{height:2,background:m.c,width:"60%",borderRadius:1}}/></div>
+                </Card>
+              ))}
+            </div>
+
+            <SectionHead>◈ RULE ADHERENCE BREAKDOWN</SectionHead>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
+              {Object.entries(RULES).map(([k,label])=>{
+                const checked=trades.filter(t=>t.rules?.[k]).length;
+                const pct=trades.length?(checked/trades.length)*100:0;
+                return (
+                  <Card key={k}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:pct>=75?C.green:pct>=50?C.yellow:C.red}}/>
+                      <div style={{color:C.muted,fontSize:10,fontWeight:700}}>{label.toUpperCase()}</div>
+                    </div>
+                    <div style={{fontSize:26,fontWeight:900,color:pct>=75?C.green:pct>=50?C.yellow:C.red}}>{pct.toFixed(0)}%</div>
+                    <div style={{color:C.muted,fontSize:10,marginBottom:8}}>{checked}/{trades.length} trades</div>
+                    <div style={{height:4,background:C.border,borderRadius:2}}><div style={{height:4,background:pct>=75?C.green:pct>=50?C.yellow:C.red,width:`${pct}%`,borderRadius:2}}/></div>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <SectionHead>◈ MISTAKE ANALYSIS</SectionHead>
+            <Card style={{marginBottom:24}}>
+              {(()=>{
+                const tagMap={};
+                trades.forEach(t=>(t.tags||[]).forEach(tag=>{if(!tagMap[tag])tagMap[tag]={count:0,pnl:0};tagMap[tag].count++;tagMap[tag].pnl+=parseFloat(t.netPnl||0);}));
+                const sorted=Object.entries(tagMap).sort((a,b)=>b[1].count-a[1].count);
+                if(!sorted.length) return <div style={{color:C.muted,textAlign:"center",padding:20}}>No mistake tags yet 🎯</div>;
+                return (
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {sorted.map(([tag,{count,pnl}])=>(
+                      <div key={tag} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:C.card2,borderRadius:8,border:`1px solid ${C.border}`}}>
+                        <Tag label={tag} color={C.red}/>
+                        <div style={{flex:1,height:4,background:C.border,borderRadius:2}}><div style={{height:4,background:C.red,borderRadius:2,width:`${(count/trades.length)*100}%`}}/></div>
+                        <div style={{color:C.muted,fontSize:11}}>{count}x</div>
+                        <div style={{color:pnl>=0?C.green:C.red,fontWeight:700,fontSize:11,minWidth:70,textAlign:"right"}}>{pnl>=0?"+":""}${Math.abs(pnl).toFixed(0)}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </Card>
+
+            <SectionHead>◈ CUMULATIVE P&L</SectionHead>
+            <Card>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={cumPnl}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
+                  <XAxis dataKey="i" stroke={C.muted} tick={{fontSize:10}}/>
+                  <YAxis stroke={C.muted} tick={{fontSize:10}}/>
+                  <Tooltip contentStyle={{background:C.card,border:`1px solid ${C.border}`,color:C.text,fontSize:11}} formatter={v=>[`$${v.toFixed(2)}`,"P&L"]}/>
+                  <Line type="monotone" dataKey="pnl" stroke={C.green} strokeWidth={2} dot={{fill:C.green,r:3}}/>
+                </LineChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        )}
+
+        {/* ── CALENDAR ── */}
+        {page==="calendar" && (
+          <div>
+            <div style={{fontSize:22,fontWeight:800,letterSpacing:"-0.5px",marginBottom:4}}>Calendar P&L</div>
+            <div style={{color:C.muted,fontSize:11,marginBottom:24}}>Daily performance overview</div>
+            <CalendarFull data={calendarPnl} trades={trades}/>
+          </div>
+        )}
+      </div>
+
+      {/* ══ LOG TRADE MODAL ══ */}
+      {showForm && (
+        <div style={{position:"fixed",inset:0,background:"#000000cc",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,backdropFilter:"blur(6px)"}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,width:920,maxHeight:"94vh",overflow:"hidden",boxShadow:"0 32px 80px #000",display:"flex",flexDirection:"column"}}>
+
+            {/* Header */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 24px",borderBottom:`1px solid ${C.border}`,background:C.card,flexShrink:0}}>
+              <div style={{fontSize:17,fontWeight:800}}>Log Trade</div>
+              <button onClick={()=>setShowForm(false)} style={{background:"transparent",border:"none",color:C.muted,fontSize:20,cursor:"pointer"}}>✕</button>
+            </div>
+
+            {/* Two-column body */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 290px",flex:1,overflow:"hidden"}}>
+
+              {/* LEFT — P&L + Library + Notes */}
+              <div style={{padding:22,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:18,overflowY:"auto"}}>
+
+                {/* 1. NET P&L */}
+                <div style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:10,padding:16}}>
+                  <Lbl>NET P&L</Lbl>
+                  <div style={{display:"flex",gap:8,marginBottom:12}}>
+                    <button onClick={()=>setForm(f=>({...f,win:true}))} style={{flex:1,padding:"8px",borderRadius:7,border:`2px solid ${form.win?C.green:C.border}`,background:form.win?`${C.green}22`:"transparent",color:form.win?C.green:C.muted,cursor:"pointer",fontWeight:800,fontSize:13,fontFamily:"inherit",transition:"all .15s"}}>Win</button>
+                    <button onClick={()=>setForm(f=>({...f,win:false}))} style={{flex:1,padding:"8px",borderRadius:7,border:`2px solid ${!form.win?C.red:C.border}`,background:!form.win?`${C.red}22`:"transparent",color:!form.win?C.red:C.muted,cursor:"pointer",fontWeight:800,fontSize:13,fontFamily:"inherit",transition:"all .15s"}}>Loss</button>
+                  </div>
+                  <div style={{position:"relative"}}>
+                    <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:form.win?C.green:C.red,fontWeight:900,fontSize:22,pointerEvents:"none"}}>$</span>
+                    <input type="text" inputMode="decimal" value={form.netPnl} onChange={e=>setForm(f=>({...f,netPnl:e.target.value}))} placeholder="0.00"
+                      style={{width:"100%",background:C.bg,color:form.win?C.green:C.red,border:`1px solid ${form.win?C.green:C.red}55`,padding:"12px 12px 12px 30px",borderRadius:8,fontSize:24,fontWeight:900,boxSizing:"border-box",outline:"none",fontFamily:"'DM Mono',monospace",letterSpacing:"-0.5px"}}/>
+                  </div>
+                </div>
+
+                {/* 2. Library — vertical stacked screenshots with title + Add */}
+                <div>
+                  <Lbl>LIBRARY</Lbl>
+                  <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleScreen}/>
+                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {form.screens.map((sc,i)=>(
+                      <div key={i} style={{background:C.bg,border:`1px solid ${C.green}44`,borderRadius:10,overflow:"hidden"}}>
+                        <div style={{position:"relative"}}>
+                          <img src={sc.url} alt="" style={{width:"100%",maxHeight:200,objectFit:"cover",display:"block"}}/>
+                          <button onClick={()=>setForm(f=>({...f,screens:f.screens.filter((_,j)=>j!==i)}))}
+                            style={{position:"absolute",top:8,right:8,background:C.red,border:"none",color:"#fff",borderRadius:"50%",width:22,height:22,fontSize:12,cursor:"pointer",fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                        </div>
+                        <div style={{padding:"8px 10px"}}>
+                          <input value={sc.title||""} onChange={e=>setForm(f=>({...f,screens:f.screens.map((s,j)=>j===i?{...s,title:e.target.value}:s)}))} placeholder="e.g. 4H chart, Entry, 15M setup..."
+                            style={{width:"100%",background:"transparent",color:C.text,border:"none",borderBottom:`1px solid ${C.border}`,padding:"4px 0",fontSize:11,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                        </div>
+                      </div>
+                    ))}
+                    {form.screens.length===0 && (
+                      <div style={{border:`1px dashed ${C.border}`,borderRadius:10,padding:24,textAlign:"center",color:C.muted}}>
+                        <div style={{fontSize:28,marginBottom:6,opacity:.3}}>📷</div>
+                        <div style={{fontSize:11}}>No screenshots yet</div>
+                      </div>
+                    )}
+                    <button onClick={()=>fileRef.current?.click()} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,width:"100%",padding:"10px",borderRadius:8,border:`1px dashed ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,fontFamily:"inherit",transition:"all .15s"}}
+                      onMouseEnter={e=>e.currentTarget.style.borderColor=C.green} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                      <span style={{fontSize:16}}>+</span> Add Screenshot
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Notes */}
+                <div>
+                  <Lbl>PRE-TRADE ANALYSIS</Lbl>
+                  <textarea value={form.notePre} onChange={e=>setForm(f=>({...f,notePre:e.target.value}))} placeholder="Why are you taking this trade? What's your bias and confluence?"
+                    style={{width:"100%",minHeight:80,background:C.bg,color:C.text,border:`1px solid ${C.border}`,padding:10,borderRadius:6,fontSize:12,resize:"vertical",boxSizing:"border-box",fontFamily:"inherit",outline:"none",lineHeight:1.5}}/>
+                </div>
+                <div>
+                  <Lbl>RIGHTS & WRONGS</Lbl>
+                  <textarea value={form.noteRW} onChange={e=>setForm(f=>({...f,noteRW:e.target.value}))} placeholder="What did you do right? What went wrong?"
+                    style={{width:"100%",minHeight:80,background:C.bg,color:C.text,border:`1px solid ${C.border}`,padding:10,borderRadius:6,fontSize:12,resize:"vertical",boxSizing:"border-box",fontFamily:"inherit",outline:"none",lineHeight:1.5}}/>
+                </div>
+
+                {/* Mistake Tags — dropdown picker */}
+                <div style={{position:"relative"}}>
+                  <Lbl>MISTAKE TAGS</Lbl>
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8,minHeight:22}}>
+                    {form.tags.map(tag=><Tag key={tag} label={tag} onRemove={()=>removeTag(tag)} color={C.red}/>)}
+                    {form.tags.length===0 && <span style={{color:C.muted2,fontSize:11,fontStyle:"italic"}}>None — great discipline!</span>}
+                  </div>
+                  <div style={{position:"relative"}}>
+                    <button onClick={()=>setShowTagDrop(s=>!s)}
+                      style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,color:C.muted,cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>
+                      <span>+ Add mistake tag...</span>
+                      <span style={{fontSize:10}}>{showTagDrop?"▲":"▼"}</span>
+                    </button>
+                    {showTagDrop && (
+                      <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,zIndex:50,overflow:"hidden",boxShadow:"0 8px 24px #000a"}}>
+                        {TAG_OPTS.map(t=>(
+                          <div key={t} onClick={()=>{addTag(t);setShowTagDrop(false);}}
+                            style={{padding:"9px 14px",cursor:"pointer",fontSize:12,color:form.tags.includes(t)?C.muted:C.text,background:"transparent",display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#ffffff08"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                            {t}
+                            {form.tags.includes(t) && <span style={{color:C.green,fontSize:10}}>✓ added</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Emotional State */}
+                <div>
+                  <Lbl>EMOTIONAL STATE</Lbl>
+                  <div style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:10,padding:14,display:"flex",alignItems:"center",gap:14}}>
+                    <EmoFace val={form.emotion} size={52}/>
+                    <div style={{flex:1}}>
+                      <div style={{color:emotionColor(form.emotion),fontWeight:800,fontSize:14,marginBottom:8}}>{emotionLabel(form.emotion)}</div>
+                      <div style={{position:"relative",height:10,borderRadius:5,background:"linear-gradient(90deg,#ef4444,#eab308,#22c55e,#3b82f6,#8b5cf6)",cursor:"pointer"}}
+                        onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setForm(f=>({...f,emotion:Math.round(Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*100)}));}}>
+                        <div style={{position:"absolute",top:"50%",left:`${form.emotion}%`,transform:"translate(-50%,-50%)",width:17,height:17,borderRadius:"50%",background:"#fff",border:`3px solid ${emotionColor(form.emotion)}`,boxShadow:"0 2px 8px #000a",pointerEvents:"none"}}/>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",marginTop:5,color:C.muted,fontSize:9}}>
+                        <span>Anxious</span><span>Neutral</span><span>Confident</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT — all detail fields */}
+              <div style={{padding:18,display:"flex",flexDirection:"column",gap:12,overflowY:"auto",background:C.card2}}>
+
+                {/* Symbol — plain input, dropdown on click */}
+                <div style={{position:"relative"}}>
+                  <Lbl>SYMBOL</Lbl>
+                  <input
+                    value={form.symbol}
+                    onChange={e=>{setForm(f=>({...f,symbol:e.target.value.toUpperCase()}));setShowSymDrop(true);}}
+                    onFocus={()=>setShowSymDrop(true)}
+                    onBlur={()=>setTimeout(()=>setShowSymDrop(false),150)}
+                    placeholder=""
+                    style={{width:"100%",background:C.card2,color:C.text,border:`1px solid ${C.border}`,padding:"10px 12px",borderRadius:8,fontSize:13,fontWeight:400,boxSizing:"border-box",outline:"none",fontFamily:"inherit"}}/>
+                  {showSymDrop && (
+                    <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,zIndex:50,boxShadow:"0 8px 24px #000a",overflow:"hidden",maxHeight:200,overflowY:"auto"}}>
+                      {["XAUUSD","NQ","MNQ","ES","MES","EURUSD","GBPUSD","USDJPY","BTC","ETH","GC","MGC","CL"].filter(s=>s.includes(form.symbol)||form.symbol==="").map(s=>(
+                        <div key={s} onMouseDown={()=>{setForm(f=>({...f,symbol:s}));setShowSymDrop(false);}}
+                          style={{padding:"9px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:C.text}}
+                          onMouseEnter={e=>e.currentTarget.style.background=C.card2}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                          {s}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Model */}
+                <div><Lbl>MODEL / PLAYBOOK</Lbl><Sel value={form.model} onChange={e=>setForm(f=>({...f,model:e.target.value}))} opts={MODELS}/></div>
+
+                {/* Trade Rules */}
+                <div>
+                  <div style={{background:`${C.green}11`,border:`1px solid ${C.green}33`,borderRadius:5,padding:"5px 8px",marginBottom:8}}>
+                    <div style={{color:C.green,fontSize:9,fontWeight:700}}>📋 Showing rules for {form.date}</div>
+                  </div>
+                  <Lbl>TRADE RULES</Lbl>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {Object.entries(RULES).map(([k,label])=>(
+                      <div key={k} onClick={()=>setForm(f=>({...f,rules:{...f.rules,[k]:!f.rules[k]}}))}
+                        style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",padding:"7px 9px",borderRadius:6,background:form.rules[k]?`${C.green}11`:"transparent",border:`1px solid ${form.rules[k]?C.green+"44":C.border}`,transition:"all .1s"}}>
+                        <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${form.rules[k]?C.green:C.muted}`,background:form.rules[k]?C.green:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {form.rules[k] && <span style={{color:"#000",fontSize:9,fontWeight:900,lineHeight:1}}>✓</span>}
+                        </div>
+                        <span style={{fontSize:11,color:form.rules[k]?C.text:C.muted,fontWeight:form.rules[k]?700:400}}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Setup Entry */}
+                <div>
+                  <Lbl>SETUP ENTRY</Lbl>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {Object.entries(SETUP_ENTRY).map(([k,label])=>(
+                      <div key={k} onClick={()=>setForm(f=>({...f,setup:{...f.setup,[k]:!f.setup[k]}}))}
+                        style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",padding:"7px 9px",borderRadius:6,background:form.setup?.[k]?`${C.blue}11`:"transparent",border:`1px solid ${form.setup?.[k]?C.blue+"44":C.border}`,transition:"all .1s"}}>
+                        <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${form.setup?.[k]?C.blue:C.muted}`,background:form.setup?.[k]?C.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {form.setup?.[k] && <span style={{color:"#000",fontSize:9,fontWeight:900,lineHeight:1}}>✓</span>}
+                        </div>
+                        <span style={{fontSize:11,color:form.setup?.[k]?C.text:C.muted,fontWeight:form.setup?.[k]?700:400}}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Date */}
+                <div><Lbl>DATE</Lbl><Inp type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/></div>
+
+                {/* Side */}
+                <div>
+                  <Lbl>SIDE</Lbl>
+                  <div style={{display:"flex",gap:6}}>
+                    {["Long","Short"].map(s=>(
+                      <button key={s} onClick={()=>setForm(f=>({...f,side:s}))} style={{flex:1,padding:"7px",borderRadius:6,border:`1px solid ${form.side===s?(s==="Long"?C.green:C.red):C.border}`,background:form.side===s?(s==="Long"?`${C.green}22`:`${C.red}22`):"transparent",color:form.side===s?(s==="Long"?C.green:C.red):C.muted,cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"inherit"}}>
+                        {s==="Long"?"↑ Long":"↓ Short"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lot */}
+                <div><Lbl>LOT / CONTRACTS</Lbl><Inp type="number" value={form.qty} onChange={e=>setForm(f=>({...f,qty:e.target.value}))} placeholder="1"/></div>
+
+                {/* Entry Price */}
+                <div><Lbl>ENTRY PRICE</Lbl><Inp type="number" value={form.entryPrice} onChange={e=>setForm(f=>({...f,entryPrice:e.target.value}))} placeholder="0.00"/></div>
+
+                {/* Stop Loss */}
+                <div><Lbl>STOP LOSS</Lbl><Inp type="number" value={form.sl} onChange={e=>setForm(f=>({...f,sl:e.target.value}))} placeholder="0.00"/></div>
+
+                {/* Risk Reward */}
+                <div><Lbl>RISK REWARD (PLANNED)</Lbl><Inp type="number" value={form.plannedRR} onChange={e=>setForm(f=>({...f,plannedRR:e.target.value}))} placeholder="e.g. 3.5"/></div>
+
+                {/* Time of Trade — 3 boxes */}
+                <div>
+                  <Lbl>TIME OF TRADE</Lbl>
+                  <div style={{display:"flex",gap:4,alignItems:"flex-end"}}>
+                    {[["Hours","tEntryH",23],["Minutes","tEntryM",59],["Seconds","tEntryS",59]].map(([lbl,key,mx])=>(
+                      <div key={key} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                        <input type="number" min={0} max={mx} value={form[key]||""} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))} placeholder="00"
+                          style={{width:"100%",background:C.bg,color:C.text,border:`1px solid ${C.border}`,padding:"10px 4px",borderRadius:7,fontSize:18,fontWeight:800,textAlign:"center",boxSizing:"border-box",outline:"none",fontFamily:"'DM Mono',monospace"}}/>
+                        <span style={{color:C.muted,fontSize:9,fontWeight:600}}>{lbl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Time of Exit — 3 boxes */}
+                <div>
+                  <Lbl>TIME OF EXIT</Lbl>
+                  <div style={{display:"flex",gap:4,alignItems:"flex-end"}}>
+                    {[["Hours","tExitH",23],["Minutes","tExitM",59],["Seconds","tExitS",59]].map(([lbl,key,mx])=>(
+                      <div key={key} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                        <input type="number" min={0} max={mx} value={form[key]||""} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))} placeholder="00"
+                          style={{width:"100%",background:C.bg,color:C.text,border:`1px solid ${C.border}`,padding:"10px 4px",borderRadius:7,fontSize:18,fontWeight:800,textAlign:"center",boxSizing:"border-box",outline:"none",fontFamily:"'DM Mono',monospace"}}/>
+                        <span style={{color:C.muted,fontSize:9,fontWeight:600}}>{lbl}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Rate Setup */}
+                <div>
+                  <Lbl>RATE SETUP (QUALITY, NOT P&L)</Lbl>
+                  <div style={{display:"flex",gap:4}}>
+                    {GRADES.map(g=>(
+                      <button key={g} onClick={()=>setForm(f=>({...f,grade:g}))} style={{flex:1,padding:"10px 2px",borderRadius:8,border:`2px solid ${form.grade===g?gradeColor(g):C.border}`,background:form.grade===g?`${gradeColor(g)}22`:"transparent",color:form.grade===g?gradeColor(g):C.muted,cursor:"pointer",fontWeight:800,fontSize:12,fontFamily:"inherit",transition:"all .15s"}}>{g}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Save */}
+                <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+                  <button onClick={saveTrade} style={{width:"100%",background:C.green,color:"#000",border:"none",padding:"13px",borderRadius:8,cursor:"pointer",fontWeight:900,fontSize:13,fontFamily:"inherit"}}>
+                    {editId?"Update Trade ✓":"Save Trade ✓"}
+                  </button>
+                  <button onClick={()=>setShowForm(false)} style={{width:"100%",background:"transparent",color:C.muted,border:`1px solid ${C.border}`,padding:"9px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",fontSize:12}}>Cancel</button>
+                </div>
+
+              </div>{/* end right column */}
+            </div>{/* end grid */}
+          </div>{/* end modal box */}
+        </div>/* end overlay */
+      )}
+    </div>
+  );
+}
+
+function CalendarWidget({ data, trades, onDayClick }) {
+  const year=2025, month=5;
+  const firstDay=new Date(year,month,1).getDay();
+  const days=new Date(year,month+1,0).getDate();
+  const cells=[];
+  for(let i=0;i<firstDay;i++) cells.push(null);
+  for(let d=1;d<=days;d++) cells.push(d);
+  const maxAbs=Math.max(...Object.values(data).map(Math.abs),1);
+  const tradesByDate={};
+  (trades||[]).forEach(t=>{if(!tradesByDate[t.date])tradesByDate[t.date]=0; tradesByDate[t.date]++;});
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontWeight:800,fontSize:15}}>June 2025</div>
+        <div style={{display:"flex",gap:5}}>
+          <button style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"3px 8px",borderRadius:4,cursor:"pointer"}}>‹</button>
+          <button style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"3px 8px",borderRadius:4,cursor:"pointer"}}>›</button>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:5}}>
+        {["Mo","Tu","We","Th","Fr","Sa","Su"].map(d=><div key={d} style={{textAlign:"center",color:C.muted,fontSize:9,padding:"3px 0",fontWeight:700}}>{d}</div>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+        {cells.map((d,i)=>{
+          if(!d) return <div key={i}/>;
+          const ds=`2025-06-${String(d).padStart(2,"0")}`;
+          const pnl=data[ds];
+          const count=tradesByDate[ds]||0;
+          const hasTrade=pnl!==undefined;
+          const intensity=hasTrade?Math.min(Math.abs(pnl)/maxAbs,1)*0.85+0.15:0;
+          const bg=hasTrade?(pnl>=0?`rgba(34,197,94,${intensity})`:`rgba(239,68,68,${intensity})`):"transparent";
+          return (
+            <div key={d} onClick={()=>hasTrade&&onDayClick&&onDayClick(ds)}
+              style={{background:bg,border:`1px solid ${d===14?C.green:hasTrade?"transparent":C.border}`,borderRadius:5,padding:"4px 3px",minHeight:52,cursor:hasTrade?"pointer":"default",transition:"opacity .1s"}}
+              onMouseEnter={e=>{ if(hasTrade) e.currentTarget.style.opacity=".8"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.opacity="1"; }}>
+              <div style={{fontSize:9,color:hasTrade?"#fff":C.muted,fontWeight:d===14?800:400}}>{d}</div>
+              {hasTrade && <div style={{fontSize:9,color:"#fff",fontWeight:700,marginTop:1}}>{pnl>=0?"+$":"-$"}{Math.abs(pnl).toFixed(0)}</div>}
+              {hasTrade && count>0 && <div style={{fontSize:8,color:"#ffffff99",marginTop:2}}>{count} trade{count>1?"s":""}</div>}
+              {!hasTrade && d<=14 && <div style={{fontSize:8,color:C.muted2,marginTop:1}}>No Trade</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CalendarFull({ data, trades }) {
+  const year=2025, month=5;
+  const firstDay=new Date(year,month,1).getDay();
+  const days=new Date(year,month+1,0).getDate();
+  const cells=[];
+  for(let i=0;i<firstDay;i++) cells.push(null);
+  for(let d=1;d<=days;d++) cells.push(d);
+  const maxAbs=Math.max(...Object.values(data).map(Math.abs),1);
+  return (
+    <Card>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:8}}>
+        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=><div key={d} style={{textAlign:"center",color:C.muted,fontSize:10,padding:4,fontWeight:700}}>{d}</div>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+        {cells.map((d,i)=>{
+          if(!d) return <div key={i}/>;
+          const ds=`2025-06-${String(d).padStart(2,"0")}`;
+          const pnl=data[ds];
+          const dt=trades.filter(t=>t.date===ds);
+          const hasTrade=pnl!==undefined;
+          const intensity=hasTrade?Math.min(Math.abs(pnl)/maxAbs,1)*0.8+0.15:0;
+          const bg=hasTrade?(pnl>=0?`rgba(34,197,94,${intensity})`:`rgba(239,68,68,${intensity})`):"transparent";
+          return (
+            <div key={d} style={{background:bg,border:`1px solid ${hasTrade?"transparent":C.border}`,borderRadius:7,padding:"7px 6px",minHeight:65}}>
+              <div style={{fontSize:10,color:hasTrade?"#ffffffaa":C.muted,fontWeight:600,marginBottom:3}}>{d}</div>
+              {hasTrade
+                ? <div style={{fontSize:12,color:"#fff",fontWeight:800}}>{pnl>=0?"+$":"-$"}{Math.abs(pnl).toFixed(0)}</div>
+                : d<=14 && <div style={{fontSize:9,color:C.muted2,fontStyle:"italic"}}>No Trade</div>}
+              {dt.length>1 && <div style={{fontSize:8,color:"#ffffff88",marginTop:2}}>{dt.length} trades</div>}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
